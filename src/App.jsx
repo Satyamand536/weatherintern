@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Thermometer, Wind, Droplets, Eye, Sun, Moon, Gauge, AlertCircle, RefreshCw } from 'lucide-react';
 
 // Weather data hook
+// Weather data hook
 const useWeatherData = (city = 'London') => {
   const [weatherData, setWeatherData] = useState(null);
   const [forecast, setForecast] = useState([]);
@@ -9,54 +10,77 @@ const useWeatherData = (city = 'London') => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Mock data for demonstration
-  const mockWeatherData = {
-    location: city,
-    country: 'GB',
-    temperature: 22,
-    feelsLike: 25,
-    description: 'Partly cloudy',
-    humidity: 65,
-    windSpeed: 3.5,
-    pressure: 1013,
-    visibility: 10,
-    uvIndex: 6,
-    sunrise: '06:30',
-    sunset: '20:15',
-    icon: '02d'
-  };
+  const API_KEY = import.meta.env.VITE_WEATHER_KEY;
 
+
+  // Mock Data (unchanged)
   const mockForecast = [
-    { date: '2024-01-15', day: 'Today', high: 24, low: 18, description: 'Partly cloudy', icon: '02d', humidity: 65, windSpeed: 3.5 },
-    { date: '2024-01-16', day: 'Tomorrow', high: 26, low: 20, description: 'Sunny', icon: '01d', humidity: 55, windSpeed: 2.8 },
-    { date: '2024-01-17', day: 'Wednesday', high: 23, low: 17, description: 'Light rain', icon: '10d', humidity: 78, windSpeed: 4.2 },
-    { date: '2024-01-18', day: 'Thursday', high: 21, low: 15, description: 'Cloudy', icon: '04d', humidity: 70, windSpeed: 3.8 },
-    { date: '2024-01-19', day: 'Friday', high: 25, low: 19, description: 'Partly cloudy', icon: '02d', humidity: 60, windSpeed: 3.2 }
+    { day: 'Mon', high: 18, low: 10, icon: '01d', description: 'clear sky', humidity: 55, windSpeed: 3.5 },
+    { day: 'Tue', high: 20, low: 12, icon: '02d', description: 'few clouds', humidity: 60, windSpeed: 4.2 },
+    { day: 'Wed', high: 17, low: 9,  icon: '10d', description: 'light rain', humidity: 75, windSpeed: 5.1 },
+    { day: 'Thu', high: 16, low: 8,  icon: '03d', description: 'scattered clouds', humidity: 65, windSpeed: 3.8 },
+    { day: 'Fri', high: 19, low: 11, icon: '01d', description: 'sunny', humidity: 50, windSpeed: 2.9 },
   ];
 
   const mockHourlyForecast = [
-    { time: '12:00', temperature: 22, icon: '02d', description: 'Partly cloudy' },
-    { time: '13:00', temperature: 23, icon: '02d', description: 'Partly cloudy' },
-    { time: '14:00', temperature: 24, icon: '01d', description: 'Sunny' },
-    { time: '15:00', temperature: 25, icon: '01d', description: 'Sunny' },
-    { time: '16:00', temperature: 24, icon: '02d', description: 'Partly cloudy' },
-    { time: '17:00', temperature: 23, icon: '02d', description: 'Partly cloudy' },
-    { time: '18:00', temperature: 22, icon: '03d', description: 'Cloudy' },
-    { time: '19:00', temperature: 21, icon: '03d', description: 'Cloudy' },
+    { time: 'Now', temperature: 15, icon: '01d', description: 'clear' },
+    { time: '1 AM', temperature: 14, icon: '01n', description: 'clear' },
+    { time: '2 AM', temperature: 13, icon: '01n', description: 'clear' },
+    { time: '3 AM', temperature: 13, icon: '02n', description: 'few clouds' },
+    { time: '4 AM', temperature: 12, icon: '02n', description: 'cloudy' },
+    { time: '5 AM', temperature: 12, icon: '03n', description: 'clouds' },
+    { time: '6 AM', temperature: 14, icon: '04d', description: 'overcast' },
+    { time: '7 AM', temperature: 16, icon: '01d', description: 'sunny' },
   ];
 
   useEffect(() => {
     const fetchWeatherData = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setWeatherData({ ...mockWeatherData, location: city });
+        // Call real OpenWeatherMap API
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("City not found");
+
+        const data = await res.json();
+
+        // Convert sunrise/sunset to readable time
+        const sunrise = new Date(data.sys.sunrise * 1000).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const sunset = new Date(data.sys.sunset * 1000).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        // Real Weather Data Object (OpenWeather)
+        const realWeatherData = {
+          location: data.name,
+          country: data.sys.country,
+          temperature: data.main.temp,
+          feelsLike: data.main.feels_like,
+          description: data.weather[0].description,
+          humidity: data.main.humidity,
+          windSpeed: data.wind.speed,
+          pressure: data.main.pressure,
+          visibility: data.visibility / 1000,
+          sunrise: sunrise,
+          sunset: sunset,
+          icon: data.weather[0].icon,
+        };
+
+        // Set data (forecast & hourly are mock)
+        setWeatherData(realWeatherData);
         setForecast(mockForecast);
         setHourlyForecast(mockHourlyForecast);
+
       } catch (err) {
-        setError('Failed to fetch weather data');
+        setError(err.message || "Failed to fetch weather");
       } finally {
         setLoading(false);
       }
@@ -138,29 +162,48 @@ const SearchBar = ({ onSearch, currentLocation }) => {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 mb-8 animate-fade-in-up animation-delay-400">
-      <form onSubmit={handleSubmit} className="flex-1 relative group">
-        <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-all duration-300 ${isFocused ? 'text-purple-400 scale-110' : 'text-gray-400'}`} />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder="Search for a city..."
-          className="w-full pl-12 pr-4 py-3 bg-gray-800/50 backdrop-blur-md rounded-2xl border border-gray-600/50 text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:bg-gray-800/70 focus:scale-105 focus:shadow-lg focus:shadow-purple-500/20 hover:bg-gray-800/60 hover:border-purple-500/30"
-        />
-      </form>
-      
-      <button
-        type="button"
-        onClick={handleCurrentLocation}
-        className="flex items-center gap-2 px-6 py-3 bg-gray-800/50 backdrop-blur-md rounded-2xl border border-cyan-500/30 text-white transition-all duration-300 hover:bg-cyan-500/20 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20 active:scale-95 group"
-      >
-        <MapPin className="w-5 h-5 group-hover:animate-bounce text-cyan-400" />
-        <span className="hidden sm:inline">Current Location</span>
-      </button>
-    </div>
+    <div className="flex flex-col sm:flex-row gap-3 mb-8 animate-fade-in-up animation-delay-400 w-full">
+
+  {/* SEARCH BAR */}
+  <form 
+    onSubmit={handleSubmit} 
+    className="flex-1 relative group min-w-[240px]"
+  >
+    <Search 
+      className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-all duration-300 
+      ${isFocused ? 'text-purple-400 scale-110' : 'text-gray-400'}`} 
+    />
+
+    <input
+      type="text"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      placeholder="Search for a city..."
+      className="w-full pl-12 pr-4 py-3 bg-gray-800/50 backdrop-blur-md rounded-2xl 
+      border border-gray-600/50 text-white placeholder-gray-400 
+      transition-all duration-300 focus:outline-none focus:ring-2 
+      focus:ring-purple-500/50 focus:border-purple-500/50 
+      focus:bg-gray-800/70 hover:bg-gray-800/60 hover:border-purple-500/30"
+    />
+  </form>
+
+  {/* CURRENT LOCATION BUTTON */}
+  <button
+    type="button"
+    onClick={handleCurrentLocation}
+    className="flex-shrink-0 flex items-center gap-2 px-6 py-3 bg-gray-800/50 
+    backdrop-blur-md rounded-2xl border border-cyan-500/30 text-white 
+    transition-all duration-300 hover:bg-cyan-500/20 hover:shadow-lg 
+    active:scale-95"
+  >
+    <MapPin className="w-5 h-5 text-cyan-400" />
+    <span className="hidden sm:inline">Current Location</span>
+  </button>
+
+</div>
+
   );
 };
 
